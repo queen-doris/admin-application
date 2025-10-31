@@ -2,7 +2,8 @@ import { Request, Response } from 'express';
 import { UserService } from '../services/userService';
 import { TransactionService } from '../services/transactionService';
 import { asyncHandler, createError } from '../middlewares/error';
-import { CustomerResponseDto, TransactionResponseDto, TransactionWithUserResponseDto, DashboardStatsDto } from '../dtos/transaction.dto';
+import {  TransactionResponseDto, TransactionWithUserResponseDto, DashboardStatsDto } from '../dtos/transaction.dto';
+import { CustomerResponseDto } from '../dtos/customer.dto';
 import { sendEmail, buildVerifiedWithOtpEmail, buildRejectedEmail } from '../utils/email';
 import { OtpRepository } from '../repositories/OtpRepository';
 
@@ -131,30 +132,7 @@ export class AdminController {
     res.json(stats);
   });
 
-  private formatCustomerResponse(user: any): CustomerResponseDto {
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      deviceId: user.deviceId,
-      balance: user.balance || 0,
-      isVerified: user.isVerified,
-      createdAt: user.createdAt.toISOString(),
-      lastLogin: user.lastLogin?.toISOString()
-    };
-  }
-
-  private formatTransactionResponse(transaction: any): TransactionResponseDto {
-    return {
-      id: transaction.id,
-      userId: transaction.userId,
-      type: transaction.type,
-      amount: transaction.amount,
-      status: transaction.status,
-      description: transaction.description,
-      createdAt: transaction.createdAt.toISOString()
-    };
-  }
+ 
 
   private formatTransactionWithUserResponse(transaction: any): TransactionWithUserResponseDto {
     return {

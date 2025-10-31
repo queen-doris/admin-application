@@ -9,24 +9,31 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, DollarSign, TrendingUp, AlertTriangle, CheckCircle, XCircle, User, LogOut, Loader2 } from 'lucide-react';
+import { Users, DollarSign, TrendingUp, AlertTriangle, CheckCircle, XCircle, User, LogOut, Loader2, Eye } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
+
+interface TransactionWithCustomer extends Transaction {
+  customerName?: string;
+  customerEmail?: string;
+}
 
 export default function AdminDashboard() {
   const { user, logout, loading } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<TransactionWithCustomer[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('customers');
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [rejectLoading, setRejectLoading] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<TransactionWithCustomer | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -51,7 +58,18 @@ export default function AdminDashboard() {
       
       setStats(statsData);
       setCustomers(customersData);
-      setTransactions(transactionsData);
+      
+      // Match transactions with customer data
+      const transactionsWithCustomers = transactionsData.map((transaction) => {
+        const customer = customersData.find(c => c.id === transaction.userId);
+        return {
+          ...transaction,
+          customerName: customer?.name || 'Unknown Customer',
+          customerEmail: customer?.email || 'N/A'
+        };
+      });
+      
+      setTransactions(transactionsWithCustomers);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     } finally {
@@ -97,6 +115,11 @@ export default function AdminDashboard() {
     } finally {
       setRejectLoading(false);
     }
+  };
+
+  const viewTransactionDetails = (transaction: TransactionWithCustomer) => {
+    setSelectedTransaction(transaction);
+    setDialogOpen(true);
   };
 
   const pendingCustomers = customers.filter(c => !c.isVerified);
@@ -328,15 +351,28 @@ export default function AdminDashboard() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>Client</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Date</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {transactions.slice(0, 50).map((transaction) => (
                         <TableRow key={transaction.id}>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="font-medium flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                {transaction.customerName}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {transaction.customerEmail}
+                              </span>
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <Badge variant={transaction.type === 'deposit' ? "default" : "secondary"}>
                               {transaction.type}
@@ -352,6 +388,17 @@ export default function AdminDashboard() {
                             </div>
                           </TableCell>
                           <TableCell>{new Date(transaction.createdAt).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => viewTransactionDetails(transaction)}
+                              className="flex items-center gap-1"
+                            >
+                              <Eye className="h-3 w-3" />
+                              View
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -463,6 +510,7 @@ export default function AdminDashboard() {
           </Card>
         </div>
       </div>
+
       {/* Reject Dialog */}
       <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
         <DialogContent>
@@ -482,6 +530,72 @@ export default function AdminDashboard() {
               {rejectLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Reject
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transaction Details Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Transaction Details</DialogTitle>
+            <DialogDescription>
+              Complete information about this transaction
+            </DialogDescription>
+          </DialogHeader>
+          {selectedTransaction && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Transaction ID</label>
+                  <p className="font-mono text-sm">{selectedTransaction.id}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Date</label>
+                  <p>{new Date(selectedTransaction.createdAt).toLocaleString()}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Client Name</label>
+                  <p className="flex items-center gap-1">
+                    <User className="h-3 w-3" />
+                    {selectedTransaction.customerName}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Client Email</label>
+                  <p>{selectedTransaction.customerEmail}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Type</label>
+                  <Badge variant={selectedTransaction.type === 'deposit' ? "default" : "secondary"}>
+                    {selectedTransaction.type}
+                  </Badge>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Amount</label>
+                  <p className="text-lg font-bold">${selectedTransaction.amount.toFixed(2)}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Status</label>
+                  <div className="flex items-center">
+                    {selectedTransaction.status === 'completed' && <CheckCircle className="h-4 w-4 text-green-500 mr-1" />}
+                    {selectedTransaction.status === 'failed' && <XCircle className="h-4 w-4 text-red-500 mr-1" />}
+                    {selectedTransaction.status === 'pending' && <Loader2 className="h-4 w-4 text-yellow-500 mr-1 animate-spin" />}
+                    <span className="ml-2 capitalize">{selectedTransaction.status}</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">User ID</label>
+                  <p className="font-mono text-sm">{selectedTransaction.userId}</p>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">Description</label>
+                <p className="mt-1 p-2 bg-gray-50 rounded border">
+                  {selectedTransaction.description || 'No description provided'}
+                </p>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
