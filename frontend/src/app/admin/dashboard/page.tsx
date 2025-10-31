@@ -41,10 +41,14 @@ export default function AdminDashboard() {
       router.push('/admin/login');
       return;
     }
+    
     loadDashboardData();
+    
+    // Auto-refresh data every 10 seconds
     const interval = setInterval(() => {
       loadDashboardData();
-    }, 30000);
+    }, 10000);
+    
     return () => clearInterval(interval);
   }, [loading, user, router]);
 
@@ -80,6 +84,7 @@ export default function AdminDashboard() {
   const handleVerifyCustomer = async (customerId: string) => {
     try {
       await apiService.verifyCustomer(customerId);
+      // Optimistically update the UI
       setCustomers(prev => 
         prev.map(customer => 
           customer.id === customerId 
@@ -87,7 +92,8 @@ export default function AdminDashboard() {
             : customer
         )
       );
-      loadDashboardData(); // Refresh stats
+      // Refresh data to ensure consistency
+      loadDashboardData();
     } catch (error) {
       console.error('Failed to verify customer:', error);
     }
